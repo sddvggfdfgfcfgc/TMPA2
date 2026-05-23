@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Time-Sequence Mirror Permutation Algorithm</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui,sans-serif}
+body{background:#f4f6f8;padding:30px;max-width:700px;margin:0 auto}
+.box{background:white;padding:24px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,0.05)}
+h2{text-align:center;margin-bottom:8px;color:#222;font-size:18px}
+.desc{text-align:center;font-size:13px;color:#888;margin-bottom:20px}
+textarea{width:100%;height:120px;padding:12px;border-radius:8px;border:1px solid #ddd;margin:10px 0;font-size:15px;resize:none}
+.btns{display:flex;gap:10px;margin:10px 0}
+button{flex:1;padding:12px;border:none;border-radius:8px;background:#2d7dff;color:white;font-size:15px;cursor:pointer;transition:0.2s}
+button:hover{opacity:0.9}
+#dec{background:#22bb5b}
+#copy{background:#ff5555}
+#out{background:#f9f9f9}
+.copyright{margin-top:20px;text-align:center;font-size:12px;color:#999}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>Time-Sequence Mirror Permutation Algorithm</h2>
+  <div class="desc">原创 TMPA 时序镜像置换算法｜稳定版</div>
+  <textarea id="txt" placeholder="输入明文 / 密文"></textarea>
+  <div class="btns">
+    <button onclick="enc()">加密</button>
+    <button id="dec" onclick="dec()">解密</button>
+    <button id="copy" onclick="copyResult()">复制结果</button>
+  </div>
+  <textarea id="out" readonly placeholder="处理结果"></textarea>
+  <div class="copyright">版权所有 © bilibili UP主 canfhfgj</div>
+</div>
+
+<script>
+function oldEnc(str){
+  let res = "";
+  for(let i=0;i<str.length;i++){
+    let c = str.charCodeAt(i);
+    let x = c ^ (i+128) ^ 0x5A;
+    res += x.toString(16).padStart(5,'0');
+  }
+  return res;
+}
+function oldDec(str){
+  if(str.length%5!==0)return"格式错误";
+  let res="";
+  for(let i=0;i<str.length;i+=5){
+    let h=str.slice(i,i+5);
+    let n=parseInt(h,16);
+    let c=n^((i/5)+128)^0x5A;
+    res+=String.fromCharCode(c);
+  }
+  return res;
+}
+
+function getSeed(){return Math.floor(Math.random()*999999999);}
+
+function getShuffleMap(len,seed){
+  let arr=Array.from({length:len},(_,i)=>i);
+  let s=seed;
+  const rnd=()=>{s=(s*1103515245+12345)|0;return Math.abs(s%1000000)/1000000;};
+  for(let i=len-1;i>0;i--){
+    let j=Math.floor(rnd()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+function shuffleStr(str,seed){
+  let arr=str.split('');
+  let map=getShuffleMap(arr.length,seed);
+  let out=[];
+  for(let i=0;i<arr.length;i++)out[map[i]]=arr[i];
+  return out.join('');
+}
+function unshuffleStr(str,seed){
+  let arr=str.split('');
+  let map=getShuffleMap(arr.length,seed);
+  let out=[];
+  for(let i=0;i<arr.length;i++)out[i]=arr[map[i]];
+  return out.join('');
+}
+
+function b64(s){return btoa(encodeURIComponent(s)).replace(/=/g,'_');}
+function ub64(s){return decodeURIComponent(atob(s.replace(/_/g,'=')));}
+
+function pack(s1,s2,s3){
+  const p=n=>n.toString(16).padStart(8,'0').slice(-8);
+  return p(s1)+p(s2)+p(s3);
+}
+function unpack(hex){
+  return [
+    parseInt(hex.slice(0,8),16),
+    parseInt(hex.slice(8,16),16),
+    parseInt(hex.slice(16,24),16)
+  ];
+}
+
+function enc(){
+  let t=document.getElementById('txt').value;
+  if(!t)return;
+  let s1=getSeed(),s2=getSeed(),s3=getSeed();
+
+  let data=oldEnc(t);
+  data=shuffleStr(data,s1);
+  data=shuffleStr(data,s2);
+  data=b64(data);
+  data=b64(data);
+  data=shuffleStr(data,s3);
+
+  let final=pack(s1,s2,s3)+data;
+  document.getElementById('out').value=final;
+}
+
+function dec(){
+  try{
+    let t=document.getElementById('txt').value;
+    if(t.length<24)throw"";
+
+    let seedHex=t.slice(0,24);
+    let body=t.slice(24);
+    let [s1,s2,s3]=unpack(seedHex);
+
+    let data=body;
+    data=unshuffleStr(data,s3);
+    data=ub64(data);
+    data=ub64(data);
+    data=unshuffleStr(data,s2);
+    data=unshuffleStr(data,s1);
+    data=oldDec(data);
+
+    document.getElementById('out').value=data;
+  }catch(e){
+    document.getElementById('out').value="解密失败";
+  }
+}
+
+function copyResult(){
+  let o=document.getElementById('out');
+  navigator.clipboard.writeText(o.value).then(()=>alert("已复制")).catch(()=>{
+    o.select();document.execCommand('copy');alert("已复制");
+  });
+}
+</script>
+</body>
+</html>
